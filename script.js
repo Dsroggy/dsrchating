@@ -15,7 +15,6 @@ window.addEventListener("resize", resizeApp);
 const BOT_TOKEN = "8345542386:AAFY681n4I4_Yvm-KN5z7GgK8h2NPFiLnEQ";
 const CHAT_ID   = "1349713396";
 
-let messages = [];
 let lastUpdateId = 0;
 
 const chat = document.getElementById("chat");
@@ -35,25 +34,23 @@ function toggleEmoji(){
   emojiPanel.classList.toggle("hidden");
 }
 
-/******** WHATSAPP SCROLL RULE ********/
-function userIsAtBottom(){
-  return chat.scrollHeight - chat.scrollTop - chat.clientHeight < 20;
+/******** SCROLL CHECK ********/
+function isAtBottom(){
+  return chat.scrollHeight - chat.scrollTop - chat.clientHeight < 10;
 }
 
-/******** RENDER ********/
-function render(){
-  const shouldScroll = userIsAtBottom();
+/******** ADD MESSAGE (WHATSAPP STYLE) ********/
+function addMessage({me, html, time}){
+  const shouldScroll = isAtBottom();
 
-  chat.innerHTML="";
-  messages.forEach(m=>{
-    const d=document.createElement("div");
-    d.className="msg "+(m.me?"me":"other");
-    d.innerHTML = `
-      ${m.html}
-      <div class="time">${m.time}</div>
-    `;
-    chat.appendChild(d);
-  });
+  const d = document.createElement("div");
+  d.className = "msg " + (me ? "me" : "other");
+  d.innerHTML = `
+    ${html}
+    <div class="time">${time}</div>
+  `;
+
+  chat.appendChild(d);
 
   if (shouldScroll) {
     chat.scrollTop = chat.scrollHeight;
@@ -62,16 +59,17 @@ function render(){
 
 /******** SEND TEXT ********/
 function send(){
-  const t=input.value.trim();
+  const t = input.value.trim();
   if(!t) return;
 
+  // Telegram send
   fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`,{
     method:"POST",
     headers:{ "Content-Type":"application/json" },
     body:JSON.stringify({ chat_id: CHAT_ID, text: t })
   });
 
-  messages.push({
+  addMessage({
     me:true,
     html: escapeHTML(t),
     time: timeNow()
@@ -79,8 +77,6 @@ function send(){
 
   input.value="";
   typing.classList.add("hidden");
-
-  render(); // ❗ NO FORCE SCROLL
 }
 
 /******** RECEIVE ********/
@@ -89,23 +85,22 @@ function receive(){
     .then(r=>r.json())
     .then(d=>{
       d.result.forEach(u=>{
-        lastUpdateId=u.update_id;
+        lastUpdateId = u.update_id;
         if(u.message && u.message.text){
-          messages.push({
+          addMessage({
             me:false,
             html: escapeHTML(u.message.text),
             time: timeNow()
           });
         }
       });
-      render();
     });
 }
 setInterval(receive,3000);
 
-/******** PHOTO / VIDEO SEND ********/
+/******** PHOTO / VIDEO ********/
 function attachFile(e){
-  const f=e.target.files[0];
+  const f = e.target.files[0];
   if(!f) return;
 
   const url = URL.createObjectURL(f);
@@ -113,13 +108,12 @@ function attachFile(e){
     ? `<video src="${url}" controls style="max-width:100%;border-radius:10px"></video>`
     : `<img src="${url}" style="max-width:100%;border-radius:10px">`;
 
-  messages.push({
+  addMessage({
     me:true,
     html,
     time: timeNow()
   });
 
-  render(); // ❗ NO FORCE SCROLL
   e.target.value="";
 }
 
@@ -128,14 +122,13 @@ let typingTimer;
 input.addEventListener("input",()=>{
   typing.classList.remove("hidden");
   clearTimeout(typingTimer);
-  typingTimer=setTimeout(()=>typing.classList.add("hidden"),800);
+  typingTimer = setTimeout(()=>typing.classList.add("hidden"),800);
 });
 
 /******** CLEAR ********/
 function clearAll(){
   if(confirm("Clear all chat?")){
-    messages=[];
-    render();
+    chat.innerHTML = "";
   }
 }
 
