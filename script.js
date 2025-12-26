@@ -1,13 +1,11 @@
-/******** WHATSAPP-STYLE KEYBOARD FIX ********/
+/******** KEYBOARD VIEWPORT FIX ********/
 function resizeApp(){
   const vh = window.visualViewport
     ? window.visualViewport.height
     : window.innerHeight;
-
   document.querySelector(".app").style.height = vh + "px";
 }
 resizeApp();
-
 if (window.visualViewport) {
   window.visualViewport.addEventListener("resize", resizeApp);
 }
@@ -25,11 +23,8 @@ const input = document.getElementById("text");
 const emojiPanel = document.getElementById("emojiPanel");
 const typing = document.getElementById("typing");
 
-/* EMOJIS */
-const EMOJIS = [
-  "😀","😁","😂","🤣","😊","😍","😘","😎","🤩",
-  "😢","😭","😡","👍","👏","🙏","🔥","❤️","💯"
-];
+/******** EMOJIS ********/
+const EMOJIS = ["😀","😁","😂","🤣","😊","😍","😘","😎","🤩","😢","😭","😡","👍","👏","🙏","🔥","❤️","💯"];
 EMOJIS.forEach(e=>{
   const s=document.createElement("span");
   s.textContent=e;
@@ -40,22 +35,32 @@ function toggleEmoji(){
   emojiPanel.classList.toggle("hidden");
 }
 
-/* RENDER */
+/******** WHATSAPP SCROLL RULE ********/
+function userIsAtBottom(){
+  return chat.scrollHeight - chat.scrollTop - chat.clientHeight < 20;
+}
+
+/******** RENDER ********/
 function render(){
+  const shouldScroll = userIsAtBottom();
+
   chat.innerHTML="";
   messages.forEach(m=>{
     const d=document.createElement("div");
     d.className="msg "+(m.me?"me":"other");
     d.innerHTML = `
-      ${m.text}
+      ${m.html}
       <div class="time">${m.time}</div>
     `;
     chat.appendChild(d);
   });
-  chat.scrollTop = chat.scrollHeight;
+
+  if (shouldScroll) {
+    chat.scrollTop = chat.scrollHeight;
+  }
 }
 
-/* SEND */
+/******** SEND TEXT ********/
 function send(){
   const t=input.value.trim();
   if(!t) return;
@@ -66,13 +71,19 @@ function send(){
     body:JSON.stringify({ chat_id: CHAT_ID, text: t })
   });
 
-  messages.push({ me:true, text:t, time: timeNow() });
+  messages.push({
+    me:true,
+    html: escapeHTML(t),
+    time: timeNow()
+  });
+
   input.value="";
   typing.classList.add("hidden");
-  render();
+
+  render(); // ❗ NO FORCE SCROLL
 }
 
-/* RECEIVE */
+/******** RECEIVE ********/
 function receive(){
   fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getUpdates?offset=${lastUpdateId+1}`)
     .then(r=>r.json())
@@ -82,7 +93,7 @@ function receive(){
         if(u.message && u.message.text){
           messages.push({
             me:false,
-            text:u.message.text,
+            html: escapeHTML(u.message.text),
             time: timeNow()
           });
         }
@@ -92,7 +103,27 @@ function receive(){
 }
 setInterval(receive,3000);
 
-/* TYPING INDICATOR */
+/******** PHOTO / VIDEO SEND ********/
+function attachFile(e){
+  const f=e.target.files[0];
+  if(!f) return;
+
+  const url = URL.createObjectURL(f);
+  const html = f.type.startsWith("video")
+    ? `<video src="${url}" controls style="max-width:100%;border-radius:10px"></video>`
+    : `<img src="${url}" style="max-width:100%;border-radius:10px">`;
+
+  messages.push({
+    me:true,
+    html,
+    time: timeNow()
+  });
+
+  render(); // ❗ NO FORCE SCROLL
+  e.target.value="";
+}
+
+/******** TYPING ********/
 let typingTimer;
 input.addEventListener("input",()=>{
   typing.classList.remove("hidden");
@@ -100,7 +131,7 @@ input.addEventListener("input",()=>{
   typingTimer=setTimeout(()=>typing.classList.add("hidden"),800);
 });
 
-/* CLEAR */
+/******** CLEAR ********/
 function clearAll(){
   if(confirm("Clear all chat?")){
     messages=[];
@@ -108,7 +139,12 @@ function clearAll(){
   }
 }
 
-/* TIME */
+/******** HELPERS ********/
 function timeNow(){
   return new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+}
+function escapeHTML(s){
+  return s.replace(/[&<>"']/g,m=>(
+    {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]
+  ));
 }

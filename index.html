@@ -21,7 +21,14 @@
 
   <div class="input">
     <button class="icon" onclick="toggleEmoji()">😀</button>
+
+    <label class="icon">
+      📎
+      <input type="file" hidden accept="image/*,video/*" onchange="attachFile(event)">
+    </label>
+
     <input id="text" placeholder="Message..." />
+
     <button class="send" onclick="send()">➤</button>
   </div>
 
