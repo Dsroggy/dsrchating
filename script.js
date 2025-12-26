@@ -16,11 +16,15 @@ const BOT_TOKEN = "8345542386:AAFY681n4I4_Yvm-KN5z7GgK8h2NPFiLnEQ";
 const CHAT_ID   = "1349713396";
 
 let lastUpdateId = 0;
+const STORAGE_KEY = "dsr_chat_messages";
 
 const chat = document.getElementById("chat");
 const input = document.getElementById("text");
 const emojiPanel = document.getElementById("emojiPanel");
 const typing = document.getElementById("typing");
+
+/******** LOAD SAVED CHAT ********/
+let messages = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
 
 /******** EMOJIS ********/
 const EMOJIS = ["😀","😁","😂","🤣","😊","😍","😘","😎","🤩","😢","😭","😡","👍","👏","🙏","🔥","❤️","💯"];
@@ -39,17 +43,24 @@ function isAtBottom(){
   return chat.scrollHeight - chat.scrollTop - chat.clientHeight < 10;
 }
 
-/******** ADD MESSAGE (WHATSAPP STYLE) ********/
-function addMessage({me, html, time}){
+/******** SAVE ********/
+function saveChat(){
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
+}
+
+/******** ADD MESSAGE ********/
+function addMessage(msg, save=true){
   const shouldScroll = isAtBottom();
 
-  const d = document.createElement("div");
-  d.className = "msg " + (me ? "me" : "other");
-  d.innerHTML = `
-    ${html}
-    <div class="time">${time}</div>
-  `;
+  messages.push(msg);
+  if(save) saveChat();
 
+  const d = document.createElement("div");
+  d.className = "msg " + (msg.me ? "me" : "other");
+  d.innerHTML = `
+    ${msg.html}
+    <div class="time">${msg.time}</div>
+  `;
   chat.appendChild(d);
 
   if (shouldScroll) {
@@ -57,12 +68,23 @@ function addMessage({me, html, time}){
   }
 }
 
+/******** RESTORE CHAT ON LOAD ********/
+messages.forEach(m=>{
+  const d = document.createElement("div");
+  d.className = "msg " + (m.me ? "me" : "other");
+  d.innerHTML = `
+    ${m.html}
+    <div class="time">${m.time}</div>
+  `;
+  chat.appendChild(d);
+});
+chat.scrollTop = chat.scrollHeight;
+
 /******** SEND TEXT ********/
 function send(){
   const t = input.value.trim();
   if(!t) return;
 
-  // Telegram send
   fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`,{
     method:"POST",
     headers:{ "Content-Type":"application/json" },
@@ -103,16 +125,19 @@ function attachFile(e){
   const f = e.target.files[0];
   if(!f) return;
 
-  const url = URL.createObjectURL(f);
-  const html = f.type.startsWith("video")
-    ? `<video src="${url}" controls style="max-width:100%;border-radius:10px"></video>`
-    : `<img src="${url}" style="max-width:100%;border-radius:10px">`;
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    const html = f.type.startsWith("video")
+      ? `<video src="${reader.result}" controls style="max-width:100%;border-radius:10px"></video>`
+      : `<img src="${reader.result}" style="max-width:100%;border-radius:10px">`;
 
-  addMessage({
-    me:true,
-    html,
-    time: timeNow()
-  });
+    addMessage({
+      me:true,
+      html,
+      time: timeNow()
+    });
+  };
+  reader.readAsDataURL(f);
 
   e.target.value="";
 }
@@ -128,7 +153,9 @@ input.addEventListener("input",()=>{
 /******** CLEAR ********/
 function clearAll(){
   if(confirm("Clear all chat?")){
-    chat.innerHTML = "";
+    messages=[];
+    saveChat();
+    chat.innerHTML="";
   }
 }
 
