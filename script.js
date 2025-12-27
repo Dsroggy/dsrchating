@@ -1,3 +1,16 @@
+/******** PASSWORD LOCK ********/
+function unlock(){
+  const p = document.getElementById("pass").value;
+  if(p === "8348"){
+    document.getElementById("lock").style.display="none";
+    document.getElementById("app").style.display="flex";
+    resizeApp();
+    chat.scrollTop = chat.scrollHeight;
+  }else{
+    alert("Wrong password");
+  }
+}
+
 /******** KEYBOARD VIEWPORT FIX ********/
 function resizeApp(){
   const vh = window.visualViewport
@@ -5,7 +18,6 @@ function resizeApp(){
     : window.innerHeight;
   document.querySelector(".app").style.height = vh + "px";
 }
-resizeApp();
 if (window.visualViewport) {
   window.visualViewport.addEventListener("resize", resizeApp);
 }
@@ -23,66 +35,48 @@ const input = document.getElementById("text");
 const emojiPanel = document.getElementById("emojiPanel");
 const typing = document.getElementById("typing");
 
-/******** LOAD SAVED CHAT ********/
+/******** LOAD CHAT ********/
 let messages = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
-
-/******** EMOJIS ********/
-const EMOJIS = ["😀","😁","😂","🤣","😊","😍","😘","😎","🤩","😢","😭","😡","👍","👏","🙏","🔥","❤️","💯"];
-EMOJIS.forEach(e=>{
-  const s=document.createElement("span");
-  s.textContent=e;
-  s.onclick=()=>{ input.value+=e; };
-  emojiPanel.appendChild(s);
-});
-function toggleEmoji(){
-  emojiPanel.classList.toggle("hidden");
-}
-
-/******** SCROLL CHECK ********/
-function isAtBottom(){
-  return chat.scrollHeight - chat.scrollTop - chat.clientHeight < 10;
-}
 
 /******** SAVE ********/
 function saveChat(){
   localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
 }
 
-/******** ADD MESSAGE ********/
-function addMessage(msg, save=true){
-  const shouldScroll = isAtBottom();
-
-  messages.push(msg);
-  if(save) saveChat();
-
-  const d = document.createElement("div");
-  d.className = "msg " + (msg.me ? "me" : "other");
-  d.innerHTML = `
-    ${msg.html}
-    <div class="time">${msg.time}</div>
-  `;
-  chat.appendChild(d);
-
-  if (shouldScroll) {
-    chat.scrollTop = chat.scrollHeight;
-  }
+/******** SCROLL HELPERS ********/
+function forceScroll(){
+  chat.scrollTop = chat.scrollHeight;
+}
+function isAtBottom(){
+  return chat.scrollHeight - chat.scrollTop - chat.clientHeight < 20;
 }
 
-/******** RESTORE CHAT ON LOAD ********/
+/******** ADD MESSAGE ********/
+function addMessage(msg){
+  messages.push(msg);
+  saveChat();
+
+  const d=document.createElement("div");
+  d.className="msg "+(msg.me?"me":"other");
+  d.innerHTML = `${msg.html}<div class="time">${msg.time}</div>`;
+  chat.appendChild(d);
+
+  // ✅ WhatsApp rule: typing / send / receive → scroll
+  forceScroll();
+}
+
+/******** RESTORE ********/
 messages.forEach(m=>{
-  const d = document.createElement("div");
-  d.className = "msg " + (m.me ? "me" : "other");
-  d.innerHTML = `
-    ${m.html}
-    <div class="time">${m.time}</div>
-  `;
+  const d=document.createElement("div");
+  d.className="msg "+(m.me?"me":"other");
+  d.innerHTML=`${m.html}<div class="time">${m.time}</div>`;
   chat.appendChild(d);
 });
-chat.scrollTop = chat.scrollHeight;
+forceScroll();
 
-/******** SEND TEXT ********/
+/******** SEND ********/
 function send(){
-  const t = input.value.trim();
+  const t=input.value.trim();
   if(!t) return;
 
   fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`,{
@@ -107,7 +101,7 @@ function receive(){
     .then(r=>r.json())
     .then(d=>{
       d.result.forEach(u=>{
-        lastUpdateId = u.update_id;
+        lastUpdateId=u.update_id;
         if(u.message && u.message.text){
           addMessage({
             me:false,
@@ -122,32 +116,40 @@ setInterval(receive,3000);
 
 /******** PHOTO / VIDEO ********/
 function attachFile(e){
-  const f = e.target.files[0];
+  const f=e.target.files[0];
   if(!f) return;
 
-  const reader = new FileReader();
-  reader.onload = ()=>{
-    const html = f.type.startsWith("video")
+  const reader=new FileReader();
+  reader.onload=()=>{
+    const html=f.type.startsWith("video")
       ? `<video src="${reader.result}" controls style="max-width:100%;border-radius:10px"></video>`
       : `<img src="${reader.result}" style="max-width:100%;border-radius:10px">`;
 
-    addMessage({
-      me:true,
-      html,
-      time: timeNow()
-    });
+    addMessage({ me:true, html, time: timeNow() });
   };
   reader.readAsDataURL(f);
-
   e.target.value="";
+}
+
+/******** EMOJI ********/
+const EMOJIS=["😀","😁","😂","🤣","😊","😍","😘","😎","🤩","😢","😭","😡","👍","👏","🙏","🔥","❤️","💯"];
+EMOJIS.forEach(e=>{
+  const s=document.createElement("span");
+  s.textContent=e;
+  s.onclick=()=>{ input.value+=e; forceScroll(); };
+  emojiPanel.appendChild(s);
+});
+function toggleEmoji(){
+  emojiPanel.classList.toggle("hidden");
 }
 
 /******** TYPING ********/
 let typingTimer;
 input.addEventListener("input",()=>{
   typing.classList.remove("hidden");
+  forceScroll();
   clearTimeout(typingTimer);
-  typingTimer = setTimeout(()=>typing.classList.add("hidden"),800);
+  typingTimer=setTimeout(()=>typing.classList.add("hidden"),800);
 });
 
 /******** CLEAR ********/

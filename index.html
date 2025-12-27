@@ -8,7 +8,27 @@
 </head>
 <body>
 
-<div class="app">
+<!-- PASSWORD LOCK -->
+<div id="lock" style="
+  height:100vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex-direction:column;
+  gap:10px;
+  background:#f2f4f8;
+">
+  <h3>🔒 Enter Password</h3>
+  <input id="pass" type="password" placeholder="Password"
+    style="padding:10px;border-radius:8px;border:1px solid #ccc">
+  <button onclick="unlock()"
+    style="padding:8px 20px;border:none;border-radius:8px;background:#4f7cff;color:#fff">
+    OK
+  </button>
+</div>
+
+<!-- CHAT APP -->
+<div class="app" id="app" style="display:none">
 
   <div class="header">
     <div class="logo">DSR Chat</div>
@@ -33,7 +53,6 @@
   </div>
 
   <div class="emoji-panel hidden" id="emojiPanel"></div>
-
 </div>
 
 <script src="script.js"></script>
